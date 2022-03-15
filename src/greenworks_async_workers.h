@@ -201,6 +201,21 @@ class RequestEncryptedAppTicketWorker : public SteamCallbackAsyncWorker {
       call_result_;
 };
 
+class GetAllItemsWorker : public SteamCallbackAsyncWorker {
+ public:
+  GetAllItemsWorker(Nan::Callback* success_callback,
+                       Nan::Callback* error_callback);
+
+  void Execute() override;
+  void HandleOKCallback() override;
+  STEAM_CALLBACK( GetAllItemsWorker, OnSteamInventoryResult, SteamInventoryResultReady_t, m_SteamInventoryResult );
+  STEAM_CALLBACK( GetAllItemsWorker, OnSteamInventoryFullUpdate, SteamInventoryFullUpdate_t, m_SteamInventoryFullUpdate );
+
+ private:
+  SteamInventoryResult_t inv_result_;
+  std::vector<SteamItemDetails_t> item_details_;
+};
+
 }  // namespace greenworks
 
 #endif  // SRC_GREENWORKS_ASYNC_WORKERS_H_

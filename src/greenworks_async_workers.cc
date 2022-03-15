@@ -363,4 +363,72 @@ void RequestEncryptedAppTicketWorker::HandleOKCallback() {
   callback->Call(1, argv, &resource);
 }
 
+GetAllItemsWorker::GetAllItemsWorker(
+    Nan::Callback* success_callback,
+    Nan::Callback* error_callback):
+        SteamCallbackAsyncWorker(success_callback, error_callback),
+        m_SteamInventoryResult( this, &GetAllItemsWorker::OnSteamInventoryResult ),
+	    m_SteamInventoryFullUpdate( this, &GetAllItemsWorker::OnSteamInventoryFullUpdate ),
+        inv_result_(-1)
+{
+}
+
+//We need this to execute SteamInventory()->GetAllItems.
+void GetAllItemsWorker::Execute() {
+  bool success = SteamInventory()->GetAllItems(&inv_result_);
+
+  if (!success) {
+    SetErrorMessage("Error - Called from SteamGameServer.");
+  }
+
+  WaitForCompleted();
+}
+
+//We need this to pass an argument to our success callback.
+void GetAllItemsWorker::HandleOKCallback() {
+  Nan::HandleScope scope;
+
+  uint32_t n = item_details_.size();
+  v8::Local<v8::Array> arr = Nan::New<v8::Array>(n);
+  for (uint32_t i = 0; i < n; i++) {
+    SteamItemDetails_t item_details = item_details_[i];
+    v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+    Nan::Set(obj, Nan::New("m_itemId").ToLocalChecked(), Nan::New(utils::uint64ToString(item_details.m_itemId)).ToLocalChecked());
+    Nan::Set(obj, Nan::New("m_iDefinition").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_iDefinition));
+    Nan::Set(obj, Nan::New("m_unQuantity").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_unQuantity));
+    Nan::Set(obj, Nan::New("m_unFlags").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_unFlags));
+
+    Nan::Set(arr, Nan::New(std::to_string(i)).ToLocalChecked(), obj);
+  }
+
+  v8::Local<v8::Value> argv[] = { arr };
+  Nan::AsyncResource resource("greenworks:GetAllItemsWorker.HandleOKCallback");
+  callback->Call(1, argv, &resource);
+}
+
+void GetAllItemsWorker::OnSteamInventoryFullUpdate( SteamInventoryFullUpdate_t *callback ) {
+    
+}
+
+void GetAllItemsWorker::OnSteamInventoryResult( SteamInventoryResultReady_t *callback ) {
+    if (callback->m_result == k_EResultOK) {
+        bool bGotResult = false;
+		uint32 count = 0;
+		if ( SteamInventory()->GetResultItems( callback->m_handle, NULL, &count ) )
+		{
+			item_details_.resize( count );
+			bGotResult = SteamInventory()->GetResultItems( callback->m_handle, item_details_.data(), &count );
+		}
+
+        if ( bGotResult ) {
+            
+        }
+    }
+
+    // We're not hanging on the the result after processing it.
+	SteamInventory()->DestroyResult( callback->m_handle );
+
+    is_completed_ = true;
+}
+
 }  // namespace greenworks
