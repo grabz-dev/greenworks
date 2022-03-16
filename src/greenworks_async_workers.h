@@ -201,6 +201,45 @@ class RequestEncryptedAppTicketWorker : public SteamCallbackAsyncWorker {
       call_result_;
 };
 
+class ConsumeItemWorker : public SteamCallbackAsyncWorker {
+ public:
+  ConsumeItemWorker(Nan::Callback* success_callback,
+                       Nan::Callback* error_callback,
+                       SteamItemInstanceID_t itemConsume,
+                       uint32 unQuantity);
+
+  void Execute() override;
+  void HandleOKCallback() override;
+  STEAM_CALLBACK( ConsumeItemWorker, OnSteamInventoryResult, SteamInventoryResultReady_t, m_SteamInventoryResult );
+
+ private:
+  SteamInventoryResult_t inv_result_;
+  std::vector<SteamItemDetails_t> item_details_;
+  SteamItemInstanceID_t itemConsume_;
+  uint32 unQuantity_;
+};
+
+class StartPurchaseWorker : public SteamCallbackAsyncWorker {
+ public:
+  StartPurchaseWorker(Nan::Callback* success_callback,
+                       Nan::Callback* error_callback,
+                       SteamItemDef_t* pArrayItemDefs,
+                       uint32_t* punArrayQuantity,
+                       uint32_t unArrayLength);
+
+  void Execute() override;
+  void HandleOKCallback() override;
+  STEAM_CALLBACK( StartPurchaseWorker, OnStartPurchaseResult, SteamInventoryStartPurchaseResult_t, m_StartPurchaseResult );
+  STEAM_CALLBACK( StartPurchaseWorker, OnResultReady, SteamInventoryResultReady_t, m_ResultReady );
+
+ private:
+  SteamItemDef_t* pArrayItemDefs_;
+  uint32_t* punArrayQuantity_;
+  uint32_t unArrayLength_;
+  uint64_t api_call_;
+  std::vector<SteamItemDetails_t> item_details_;
+};
+
 class GetAllItemsWorker : public SteamCallbackAsyncWorker {
  public:
   GetAllItemsWorker(Nan::Callback* success_callback,
@@ -214,6 +253,18 @@ class GetAllItemsWorker : public SteamCallbackAsyncWorker {
  private:
   SteamInventoryResult_t inv_result_;
   std::vector<SteamItemDetails_t> item_details_;
+};
+
+class GameOverlayActivatedWorker : public SteamCallbackAsyncWorker {
+ public:
+  GameOverlayActivatedWorker(Nan::Callback* success_callback,
+                       Nan::Callback* error_callback);
+
+  void Execute() override;
+  void HandleOKCallback() override;
+  STEAM_CALLBACK(GameOverlayActivatedWorker, OnGameOverlayActivated, GameOverlayActivated_t, m_GameOverlayActivated );
+  private:
+    uint8_t overlay_activated_;
 };
 
 }  // namespace greenworks

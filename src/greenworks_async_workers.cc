@@ -363,6 +363,138 @@ void RequestEncryptedAppTicketWorker::HandleOKCallback() {
   callback->Call(1, argv, &resource);
 }
 
+ConsumeItemWorker::ConsumeItemWorker(
+    Nan::Callback* success_callback,
+    Nan::Callback* error_callback,
+    SteamItemInstanceID_t itemConsume,
+    uint32 unQuantity):
+        SteamCallbackAsyncWorker(success_callback, error_callback),
+        m_SteamInventoryResult( this, &ConsumeItemWorker::OnSteamInventoryResult ),
+        inv_result_(-1),
+        itemConsume_(itemConsume),
+        unQuantity_(unQuantity)
+{
+}
+
+void ConsumeItemWorker::Execute() {
+  bool success = SteamInventory()->ConsumeItem(&inv_result_, itemConsume_, unQuantity_);
+
+  if (!success) {
+    SetErrorMessage("Error - Called from SteamGameServer.");
+  }
+
+  WaitForCompleted();
+}
+
+void ConsumeItemWorker::HandleOKCallback() {
+  Nan::HandleScope scope;
+
+  uint32_t n = item_details_.size();
+  v8::Local<v8::Array> arr = Nan::New<v8::Array>(n);
+  for (uint32_t i = 0; i < n; i++) {
+    SteamItemDetails_t item_details = item_details_[i];
+    v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+    Nan::Set(obj, Nan::New("m_itemId").ToLocalChecked(), Nan::New(utils::uint64ToString(item_details.m_itemId)).ToLocalChecked());
+    Nan::Set(obj, Nan::New("m_iDefinition").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_iDefinition));
+    Nan::Set(obj, Nan::New("m_unQuantity").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_unQuantity));
+    Nan::Set(obj, Nan::New("m_unFlags").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_unFlags));
+
+    Nan::Set(arr, Nan::New(std::to_string(i)).ToLocalChecked(), obj);
+  }
+
+  v8::Local<v8::Value> argv[] = { arr };
+  Nan::AsyncResource resource("greenworks:ConsumeItemWorker.HandleOKCallback");
+  callback->Call(1, argv, &resource);
+}
+
+void ConsumeItemWorker::OnSteamInventoryResult( SteamInventoryResultReady_t *callback ) {
+    if (callback->m_result == k_EResultOK) {
+        bool bGotResult = false;
+		uint32 count = 0;
+		if ( SteamInventory()->GetResultItems( callback->m_handle, NULL, &count ) )
+		{
+			item_details_.resize( count );
+			bGotResult = SteamInventory()->GetResultItems( callback->m_handle, item_details_.data(), &count );
+		}
+
+        if ( bGotResult ) {
+            
+        }
+    }
+
+    // We're not hanging on the the result after processing it.
+	SteamInventory()->DestroyResult( callback->m_handle );
+
+    is_completed_ = true;
+}
+
+StartPurchaseWorker::StartPurchaseWorker(
+    Nan::Callback* success_callback,
+    Nan::Callback* error_callback,
+    SteamItemDef_t* pArrayItemDefs,
+    uint32_t* punArrayQuantity,
+    uint32_t unArrayLength):
+        SteamCallbackAsyncWorker(success_callback, error_callback),
+        m_StartPurchaseResult( this, &StartPurchaseWorker::OnStartPurchaseResult ),
+	    m_ResultReady( this, &StartPurchaseWorker::OnResultReady ),
+        pArrayItemDefs_(pArrayItemDefs),
+        punArrayQuantity_(punArrayQuantity),
+        unArrayLength_(unArrayLength)
+{
+}
+
+void StartPurchaseWorker::Execute() {
+  api_call_ = SteamInventory()->StartPurchase(pArrayItemDefs_, punArrayQuantity_, unArrayLength_);
+
+  WaitForCompleted();
+}
+
+void StartPurchaseWorker::OnStartPurchaseResult(SteamInventoryStartPurchaseResult_t *callback) {
+    
+}
+
+void StartPurchaseWorker::OnResultReady(SteamInventoryResultReady_t *callback) {
+    if (callback->m_result == k_EResultOK) {
+        bool bGotResult = false;
+		uint32 count = 0;
+		if ( SteamInventory()->GetResultItems( callback->m_handle, NULL, &count ) )
+		{
+			item_details_.resize( count );
+			bGotResult = SteamInventory()->GetResultItems( callback->m_handle, item_details_.data(), &count );
+		}
+
+        if ( bGotResult ) {
+            
+        }
+    }
+
+    // We're not hanging on the the result after processing it.
+	SteamInventory()->DestroyResult( callback->m_handle );
+
+    is_completed_ = true;
+}
+
+void StartPurchaseWorker::HandleOKCallback() {
+  Nan::HandleScope scope;
+
+  uint32_t n = item_details_.size();
+  v8::Local<v8::Array> arr = Nan::New<v8::Array>(n);
+  for (uint32_t i = 0; i < n; i++) {
+    SteamItemDetails_t item_details = item_details_[i];
+    v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+    Nan::Set(obj, Nan::New("m_itemId").ToLocalChecked(), Nan::New(utils::uint64ToString(item_details.m_itemId)).ToLocalChecked());
+    Nan::Set(obj, Nan::New("m_iDefinition").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_iDefinition));
+    Nan::Set(obj, Nan::New("m_unQuantity").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_unQuantity));
+    Nan::Set(obj, Nan::New("m_unFlags").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_unFlags));
+
+    Nan::Set(arr, Nan::New(std::to_string(i)).ToLocalChecked(), obj);
+  }
+
+  v8::Local<v8::Value> argv[] = { arr };
+  Nan::AsyncResource resource("greenworks:GetAllItemsWorker.HandleOKCallback");
+  callback->Call(1, argv, &resource);
+}
+
 GetAllItemsWorker::GetAllItemsWorker(
     Nan::Callback* success_callback,
     Nan::Callback* error_callback):
@@ -428,6 +560,34 @@ void GetAllItemsWorker::OnSteamInventoryResult( SteamInventoryResultReady_t *cal
     // We're not hanging on the the result after processing it.
 	SteamInventory()->DestroyResult( callback->m_handle );
 
+    is_completed_ = true;
+}
+
+GameOverlayActivatedWorker::GameOverlayActivatedWorker(
+    Nan::Callback* success_callback,
+    Nan::Callback* error_callback):
+        SteamCallbackAsyncWorker(success_callback, error_callback),
+        m_GameOverlayActivated( this, &GameOverlayActivatedWorker::OnGameOverlayActivated ),
+        overlay_activated_(0)
+{
+}
+
+void GameOverlayActivatedWorker::Execute() {
+  WaitForCompleted();
+}
+
+void GameOverlayActivatedWorker::HandleOKCallback() {
+  Nan::HandleScope scope;
+
+  v8::Local<v8::Boolean> active = Nan::New<v8::Boolean>(overlay_activated_);
+
+  v8::Local<v8::Value> argv[] = { active };
+  Nan::AsyncResource resource("greenworks:GameOverlayActivatedWorker.HandleOKCallback");
+  callback->Call(1, argv, &resource);
+}
+
+void GameOverlayActivatedWorker::OnGameOverlayActivated( GameOverlayActivated_t *callback ) {
+    overlay_activated_ = callback->m_bActive;
     is_completed_ = true;
 }
 
