@@ -30,7 +30,6 @@ class SteamCallbackAsyncWorker : public SteamAsyncWorker {
       Nan::Callback* error_callback);
 
   void WaitForCompleted();
-  void Sleep();
 
  protected:
   bool is_completed_;

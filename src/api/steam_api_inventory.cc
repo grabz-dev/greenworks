@@ -87,28 +87,10 @@ NAN_METHOD(GetAllItems) {
   info.GetReturnValue().Set(Nan::Undefined());
 }
 
-NAN_METHOD(GameOverlayActivated) {
-  Nan::HandleScope scope;
-
-  if (info.Length() < 1 || !info[0]->IsFunction()) {
-    THROW_BAD_ARGS("Bad arguments");
-  }
-  Nan::Callback* success_callback = new Nan::Callback(info[0].As<v8::Function>());
-  Nan::Callback* error_callback = nullptr;
-
-  if (info.Length() > 1 && info[1]->IsFunction())
-    error_callback = new Nan::Callback(info[1].As<v8::Function>());
-
-  Nan::AsyncQueueWorker(new greenworks::GameOverlayActivatedWorker(
-      success_callback, error_callback));
-  info.GetReturnValue().Set(Nan::Undefined());
-}
-
 void RegisterAPIs(v8::Local<v8::Object> target) {
   SET_FUNCTION("consumeItem", ConsumeItem)
   SET_FUNCTION("startPurchase", StartPurchase);
   SET_FUNCTION("getAllItems", GetAllItems);
-  SET_FUNCTION("gameOverlayActivated", GameOverlayActivated);
 }
 
 SteamAPIRegistry::Add X(RegisterAPIs);

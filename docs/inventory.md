@@ -27,13 +27,12 @@ Instead, the error callback will be fired if the operation failed for any reason
 * `item_arr` Array<{ item_def: Number, quantity: Number }>: Array of items to begin the purchase of.
   * `item_def` Number: Item definition ID.
   * `quantity` Number: Quantity to purchase.
-* `success_callback` Function(item_arr)
-  * `item_arr` Array<SteamItemDetails>: Array containing the items that were purchased and are now in the user's inventory.
+* `success_callback` Function()
 * `error_callback` Function(err)
 
 Begins a Steam purchase of the specified quantities of the specified items.
-The success callback will be fired after a purchase is completed.
-The error callback will be fired if the purchase failed or was cancelled.
+The callbacks are fired on initiation of the purchase.
+To have a callback for after the user finalized the purchase, listen for the [`micro-txn-authorization-response` event](https://github.com/grabz-dev/greenworks/blob/master/docs/events.md).
 
 ### greenworks.getAllItems(success_callback, [error_callback])
 * `success_callback` Function(item_arr)
@@ -42,12 +41,3 @@ The error callback will be fired if the purchase failed or was cancelled.
 
 Retrieves the current state of the user's inventory.
 This function is subject to rate limits, and may return cached results if called too frequently. It is suggested that you call this function only when you are about to display the user's full inventory, or if you expect that the inventory may have changed.
-
-### greenworks.gameOverlayActivated(success_callback, [error_callback])
-* `success_callback` Function(active)
-  * `active` Boolean: `true` if the overlay was activated, `false` if the overlay was deactivated.
-* `error_callback` Function(err)
-
-The success callback will be fired when the Steam overlay is opened or closed.
-Register a new callback with `greenworks.gameOverlayActivated` whenever the success callback is called.
-#TODO Move this function to a better fitting place.
