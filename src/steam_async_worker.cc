@@ -31,13 +31,23 @@ void SteamAsyncWorker::HandleErrorCallback() {
 SteamCallbackAsyncWorker::SteamCallbackAsyncWorker(
     Nan::Callback* success_callback, Nan::Callback* error_callback):
         SteamAsyncWorker(success_callback, error_callback),
-        is_completed_(false) {
+        is_completed_(false),
+        time_elapsed_(0),
+        is_timeout_(true) {
 }
 
 void SteamCallbackAsyncWorker::WaitForCompleted() {
   while (!is_completed_) {
     // sleep 100ms.
     utils::sleep(100);
+
+    if(is_timeout_) {
+        time_elapsed_ += 100;
+        if(time_elapsed_ > 60000) {
+            SetErrorMessage("SteamCallbackAsyncWorker timed out after 60 seconds.");
+            return;
+        }
+    }
   }
 }
 

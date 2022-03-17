@@ -16,11 +16,12 @@ Represents Steam SDK [`SteamItemDetails_t`](https://partner.steamgames.com/doc/a
 * `item_consume` String: The item instance id to consume.
 * `un_quantity` String: The number of items in that stack to consume.
 * `success_callback` Function(item_arr)
-  * `item_arr` Array<SteamItemDetails>: Array with the current state of the consumed item(s) after the consumption. Empty array if nothing was consumed.
+  * `item_arr` Array<SteamItemDetails>: Array with the current state of the consumed item(s) after the consumption.
 * `error_callback` Function(err)
 
 Consumes an amount of an item from the player's inventory.
-The success callback will be fired after the item is consumed.
+The success callback will be fired after the item is consumed, if the player owns the required amount of the specified item.
+Instead, the error callback will be fired if the operation failed for any reason.
 
 ### greenworks.startPurchase(item_arr, success_callback, [error_callback])
 * `item_arr` Array<{ item_def: Number, quantity: Number }>: Array of items to begin the purchase of.
@@ -32,6 +33,7 @@ The success callback will be fired after the item is consumed.
 
 Begins a Steam purchase of the specified quantities of the specified items.
 The success callback will be fired after a purchase is completed.
+The error callback will be fired if the purchase failed or was cancelled.
 
 ### greenworks.getAllItems(success_callback, [error_callback])
 * `success_callback` Function(item_arr)

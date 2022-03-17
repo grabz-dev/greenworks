@@ -408,7 +408,12 @@ void ConsumeItemWorker::HandleOKCallback() {
 }
 
 void ConsumeItemWorker::OnSteamInventoryResult( SteamInventoryResultReady_t *callback ) {
-    if (callback->m_result == k_EResultOK) {
+    if (callback->m_handle != inv_result_) return;
+
+    if (callback->m_result != k_EResultOK) {
+        SetErrorMessage(("ConsumeItem error code: " + std::to_string(callback->m_result) + ". https://partner.steamgames.com/doc/api/steam_api#EResult").c_str());
+    }
+    else {
         bool bGotResult = false;
 		uint32 count = 0;
 		if ( SteamInventory()->GetResultItems( callback->m_handle, NULL, &count ) )
@@ -417,8 +422,8 @@ void ConsumeItemWorker::OnSteamInventoryResult( SteamInventoryResultReady_t *cal
 			bGotResult = SteamInventory()->GetResultItems( callback->m_handle, item_details_.data(), &count );
 		}
 
-        if ( bGotResult ) {
-            
+        if ( !bGotResult ) {
+            SetErrorMessage("ConsumeItem failed. This indicates that the user has no items, or an internal error.");
         }
     }
 
@@ -437,24 +442,56 @@ StartPurchaseWorker::StartPurchaseWorker(
         SteamCallbackAsyncWorker(success_callback, error_callback),
         m_StartPurchaseResult( this, &StartPurchaseWorker::OnStartPurchaseResult ),
 	    m_ResultReady( this, &StartPurchaseWorker::OnResultReady ),
+        m_GameOverlayActivated( this, &StartPurchaseWorker::OnGameOverlayActivated ),
         pArrayItemDefs_(pArrayItemDefs),
         punArrayQuantity_(punArrayQuantity),
-        unArrayLength_(unArrayLength)
+        unArrayLength_(unArrayLength),
+        overlay_activated_(0),
+        purchase_started_(0)
 {
 }
 
 void StartPurchaseWorker::Execute() {
   api_call_ = SteamInventory()->StartPurchase(pArrayItemDefs_, punArrayQuantity_, unArrayLength_);
 
-  WaitForCompleted();
+  if(api_call_ == k_uAPICallInvalid) SetErrorMessage("StartPurchase API call invalid.");
+  else {
+    while (!is_completed_) {
+        utils::sleep(100);
+        time_elapsed_ += 100;
+        if(time_elapsed_ > 10000 && !purchase_started_) {
+            SetErrorMessage("StartPurchase - Overlay hasn't opened after 10 seconds.");
+            return;
+        }
+    }
+  }
+}
+
+void StartPurchaseWorker::OnGameOverlayActivated( GameOverlayActivated_t *callback ) {
+    overlay_activated_ = callback->m_bActive;
+
+    if(!overlay_activated_) {
+        SetErrorMessage("StartPurchase - Overlay was closed, transaction is cancelled.");
+        is_completed_ = true;
+        return;
+    }
+    else {
+        purchase_started_ = overlay_activated_;
+    }
 }
 
 void StartPurchaseWorker::OnStartPurchaseResult(SteamInventoryStartPurchaseResult_t *callback) {
-    
+    if (callback->m_result != k_EResultOK) {
+        SetErrorMessage(("StartPurchase.OnStartPurchaseResult error code: " + std::to_string(callback->m_result) + ". https://partner.steamgames.com/doc/api/steam_api#EResult").c_str());
+        is_completed_ = true;
+    }
 }
 
 void StartPurchaseWorker::OnResultReady(SteamInventoryResultReady_t *callback) {
-    if (callback->m_result == k_EResultOK) {
+    if (callback->m_result != k_EResultOK) {
+        SetErrorMessage(("StartPurchase.OnResultReady error code: " + std::to_string(callback->m_result) + ". https://partner.steamgames.com/doc/api/steam_api#EResult").c_str());
+    }
+    else {
         bool bGotResult = false;
 		uint32 count = 0;
 		if ( SteamInventory()->GetResultItems( callback->m_handle, NULL, &count ) )
@@ -463,8 +500,8 @@ void StartPurchaseWorker::OnResultReady(SteamInventoryResultReady_t *callback) {
 			bGotResult = SteamInventory()->GetResultItems( callback->m_handle, item_details_.data(), &count );
 		}
 
-        if ( bGotResult ) {
-            
+        if ( !bGotResult ) {
+            SetErrorMessage("StartPurchase failed. This indicates that the user has no items, or an internal error.");
         }
     }
 
@@ -501,7 +538,8 @@ GetAllItemsWorker::GetAllItemsWorker(
         SteamCallbackAsyncWorker(success_callback, error_callback),
         m_SteamInventoryResult( this, &GetAllItemsWorker::OnSteamInventoryResult ),
 	    m_SteamInventoryFullUpdate( this, &GetAllItemsWorker::OnSteamInventoryFullUpdate ),
-        inv_result_(-1)
+        inv_result_(-1),
+        full_update_(false)
 {
 }
 
@@ -533,17 +571,22 @@ void GetAllItemsWorker::HandleOKCallback() {
     Nan::Set(arr, Nan::New(std::to_string(i)).ToLocalChecked(), obj);
   }
 
-  v8::Local<v8::Value> argv[] = { arr };
+  v8::Local<v8::Value> argv[] = { arr, Nan::New<v8::Boolean>(full_update_) };
   Nan::AsyncResource resource("greenworks:GetAllItemsWorker.HandleOKCallback");
-  callback->Call(1, argv, &resource);
+  callback->Call(2, argv, &resource);
 }
 
 void GetAllItemsWorker::OnSteamInventoryFullUpdate( SteamInventoryFullUpdate_t *callback ) {
-    
+    full_update_ = true;
 }
 
 void GetAllItemsWorker::OnSteamInventoryResult( SteamInventoryResultReady_t *callback ) {
-    if (callback->m_result == k_EResultOK) {
+    if (callback->m_handle != inv_result_) return;
+    
+    if (callback->m_result != k_EResultOK) {
+        SetErrorMessage(("GetAllItems error code: " + std::to_string(callback->m_result) + ". https://partner.steamgames.com/doc/api/steam_api#EResult").c_str());
+    }
+    else {
         bool bGotResult = false;
 		uint32 count = 0;
 		if ( SteamInventory()->GetResultItems( callback->m_handle, NULL, &count ) )
@@ -552,8 +595,8 @@ void GetAllItemsWorker::OnSteamInventoryResult( SteamInventoryResultReady_t *cal
 			bGotResult = SteamInventory()->GetResultItems( callback->m_handle, item_details_.data(), &count );
 		}
 
-        if ( bGotResult ) {
-            
+        if ( !bGotResult ) {
+            SetErrorMessage("GetAllItems failed. This indicates that the user has no items, or an internal error.");
         }
     }
 
@@ -573,6 +616,7 @@ GameOverlayActivatedWorker::GameOverlayActivatedWorker(
 }
 
 void GameOverlayActivatedWorker::Execute() {
+  is_timeout_ = false;
   WaitForCompleted();
 }
 

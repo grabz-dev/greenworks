@@ -30,9 +30,12 @@ class SteamCallbackAsyncWorker : public SteamAsyncWorker {
       Nan::Callback* error_callback);
 
   void WaitForCompleted();
+  void Sleep();
 
  protected:
   bool is_completed_;
+  bool is_timeout_;
+  uint32_t time_elapsed_;
 };
 
 }  // namespace greenworks

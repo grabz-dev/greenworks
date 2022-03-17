@@ -231,6 +231,7 @@ class StartPurchaseWorker : public SteamCallbackAsyncWorker {
   void HandleOKCallback() override;
   STEAM_CALLBACK( StartPurchaseWorker, OnStartPurchaseResult, SteamInventoryStartPurchaseResult_t, m_StartPurchaseResult );
   STEAM_CALLBACK( StartPurchaseWorker, OnResultReady, SteamInventoryResultReady_t, m_ResultReady );
+  STEAM_CALLBACK( StartPurchaseWorker, OnGameOverlayActivated, GameOverlayActivated_t, m_GameOverlayActivated );
 
  private:
   SteamItemDef_t* pArrayItemDefs_;
@@ -238,6 +239,8 @@ class StartPurchaseWorker : public SteamCallbackAsyncWorker {
   uint32_t unArrayLength_;
   uint64_t api_call_;
   std::vector<SteamItemDetails_t> item_details_;
+  uint8_t overlay_activated_;
+  uint8_t purchase_started_;
 };
 
 class GetAllItemsWorker : public SteamCallbackAsyncWorker {
@@ -253,6 +256,7 @@ class GetAllItemsWorker : public SteamCallbackAsyncWorker {
  private:
   SteamInventoryResult_t inv_result_;
   std::vector<SteamItemDetails_t> item_details_;
+  bool full_update_;
 };
 
 class GameOverlayActivatedWorker : public SteamCallbackAsyncWorker {
