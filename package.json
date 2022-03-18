@@ -1,6 +1,6 @@
 {
   "name": "greenworks",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "A node.js addon exposing Valve's Steamworks APIs to JavaScript",
   "licenses": [
     {
@@ -16,7 +16,7 @@
     "nan": "^2.14.0"
   },
   "devDependencies": {
-    "mocha": "1.21.4"
+    
   },
   "gypfile": true,
   "main": "greenworks.js"
