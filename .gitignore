@@ -5,6 +5,7 @@ lib/
 download/
 dist/
 deps/steamworks*
+deps/discord*
 test/steam_appid.txt
 steam_appid.txt
 *.pyc

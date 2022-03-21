@@ -1,6 +1,7 @@
 {
   'variables': {
     'steamworks_sdk_dir': '<!(node tools/steamworks_sdk_dir.js)',
+    'discord_game_sdk_dir': '<!(node tools/discord_game_sdk_dir.js)',
     'target_dir': 'lib'
   },
 
@@ -12,10 +13,13 @@
             'project_name': 'greenworks-win32',
             'redist_bin_dir': '',
             'public_lib_dir': 'win32',
+            'discord_lib_dir': 'x86',
             'lib_steam': 'steam_api.lib',
             'lib_encryptedappticket': 'sdkencryptedappticket.lib',
+            'lib_discord': 'discord_game_sdk.dll.lib',
             'lib_dll_steam': 'steam_api.dll',
             'lib_dll_encryptedappticket': 'sdkencryptedappticket.dll',
+            'lib_dll_discord': 'discord_game_sdk.dll',
           },
         }],
         ['target_arch=="x64"', {
@@ -23,10 +27,13 @@
             'project_name': 'greenworks-win64',
             'redist_bin_dir': 'win64',
             'public_lib_dir': 'win64',
+            'discord_lib_dir': 'x86_64',
             'lib_steam': 'steam_api64.lib',
             'lib_encryptedappticket': 'sdkencryptedappticket64.lib',
+            'lib_discord': 'discord_game_sdk.dll.lib',
             'lib_dll_steam': 'steam_api64.dll',
             'lib_dll_encryptedappticket': 'sdkencryptedappticket64.dll',
+            'lib_dll_discord': 'discord_game_sdk.dll',
           },
         }],
       ],
@@ -47,14 +54,18 @@
       'variables': {
         'redist_bin_dir': 'osx32',
         'public_lib_dir': 'osx32',
+        'discord_lib_dir': 'x86_64',
         'lib_steam': 'libsteam_api.dylib',
         'lib_encryptedappticket': 'libsdkencryptedappticket.dylib',
+        'lib_discord': 'discord_game_sdk.dylib',
       },
     }],
     ['OS=="linux"', {
       'variables': {
+        'discord_lib_dir': 'x86_64',
         'lib_steam': 'libsteam_api.so',
         'lib_encryptedappticket': 'libsdkencryptedappticket.so',
+        'lib_discord': 'discord_game_sdk.so',
       },
       'conditions': [
         ['target_arch=="ia32"', {
@@ -79,17 +90,33 @@
     {
       'target_name': '<(project_name)',
       'sources': [
+        '<(discord_game_sdk_dir)/cpp/types.cpp',
+        '<(discord_game_sdk_dir)/cpp/core.cpp',
+        '<(discord_game_sdk_dir)/cpp/achievement_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/activity_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/application_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/image_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/lobby_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/network_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/overlay_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/relationship_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/storage_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/store_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/user_manager.cpp',
+        '<(discord_game_sdk_dir)/cpp/voice_manager.cpp',
         'src/api/greenworks_api_utils.cc',
         'src/api/steam_api_achievement.cc',
         'src/api/steam_api_auth.cc',
         'src/api/steam_api_cloud.cc',
         'src/api/steam_api_dlc.cc',
         'src/api/steam_api_friends.cc',
+        'src/api/steam_api_inventory.cc',
         'src/api/steam_api_matchmaking.cc',
         'src/api/steam_api_registry.h',
         'src/api/steam_api_settings.cc',
         'src/api/steam_api_stats.cc',
         'src/api/steam_api_workshop.cc',
+        'src/api/discord_api.cc',
         'src/greenworks_api.cc',
         'src/greenworks_async_workers.cc',
         'src/greenworks_async_workers.h',
@@ -115,6 +142,7 @@
         'deps',
         'src',
         '<(steamworks_sdk_dir)/public',
+        '<(discord_game_sdk_dir)',
         '<!(node -e "require(\'nan\')")'
       ],
       'dependencies': [ 'deps/zlib/zlib.gyp:minizip' ],
@@ -122,13 +150,14 @@
         'library_dirs': [
           '<(steamworks_sdk_dir)/redistributable_bin/<(redist_bin_dir)/',
           '<(steamworks_sdk_dir)/public/steam/lib/<(public_lib_dir)/',
+          '<(discord_game_sdk_dir)/lib/<(discord_lib_dir)/'
         ],
         'conditions': [
           ['OS=="linux" or OS=="mac"', {
-            'libraries': ['-lsteam_api', '-lsdkencryptedappticket'],
+            'libraries': ['-lsteam_api', '-lsdkencryptedappticket', '-ldiscord_game_sdk.dll'],
           }],
           ['OS=="win"', {
-            'libraries': ['-l<(lib_steam)', '-l<(lib_encryptedappticket)'],
+            'libraries': ['-l<(lib_steam)', '-l<(lib_encryptedappticket)', '-l<(lib_discord)'],
           }],
         ],
       },
@@ -194,16 +223,19 @@
               ['OS=="win"', {
                 'lib_steam_path': '<(steamworks_sdk_dir)/redistributable_bin/<(redist_bin_dir)/<(lib_dll_steam)',
                 'lib_encryptedappticket_path': '<(steamworks_sdk_dir)/public/steam/lib/<(public_lib_dir)/<(lib_dll_encryptedappticket)',
+                'lib_discord_path': '<(discord_game_sdk_dir)/lib/<(discord_lib_dir)/<(lib_dll_discord)',
               }],
               ['OS=="mac" or OS=="linux"', {
                 'lib_steam_path': '<(steamworks_sdk_dir)/redistributable_bin/<(redist_bin_dir)/<(lib_steam)',
                 'lib_encryptedappticket_path': '<(steamworks_sdk_dir)/public/steam/lib/<(public_lib_dir)/<(lib_encryptedappticket)',
+                'lib_discord_path': '<(discord_game_sdk_dir)/lib/<(discord_lib_dir)/<(lib_discord)',
               }],
             ]
           },
           'inputs': [
             '<(lib_steam_path)',
             '<(lib_encryptedappticket_path)',
+            '<(lib_discord_path)',
             '<(PRODUCT_DIR)/<(project_name).node',
           ],
           'outputs': [
