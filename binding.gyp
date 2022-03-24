@@ -2,7 +2,6 @@
   'variables': {
     'steamworks_sdk_dir': '<!(node tools/steamworks_sdk_dir.js)',
     'discord_game_sdk_dir': '<!(node tools/discord_game_sdk_dir.js)',
-    'target_dir': 'lib'
   },
 
   'conditions': [
@@ -10,6 +9,7 @@
       'conditions': [
         ['target_arch=="ia32"', {
           'variables': {
+            'target_dir': 'lib/win32',
             'project_name': 'greenworks-win32',
             'redist_bin_dir': '',
             'public_lib_dir': 'win32',
@@ -24,6 +24,7 @@
         }],
         ['target_arch=="x64"', {
           'variables': {
+            'target_dir': 'lib/win64',
             'project_name': 'greenworks-win64',
             'redist_bin_dir': 'win64',
             'public_lib_dir': 'win64',
@@ -39,21 +40,11 @@
       ],
     }],
     ['OS=="mac"', {
-      'conditions': [
-        ['target_arch=="ia32"', {
-          'variables': {
-            'project_name': 'greenworks-osx32',
-          },
-        }],
-        ['target_arch=="x64"', {
-          'variables': {
-            'project_name': 'greenworks-osx64',
-          },
-        }],
-      ],
       'variables': {
-        'redist_bin_dir': 'osx32',
-        'public_lib_dir': 'osx32',
+        'target_dir': 'lib/osx',
+        'project_name': 'greenworks-osx',
+        'redist_bin_dir': 'osx',
+        'public_lib_dir': 'osx',
         'discord_lib_dir': 'x86_64',
         'lib_steam': 'libsteam_api.dylib',
         'lib_encryptedappticket': 'libsdkencryptedappticket.dylib',
@@ -70,6 +61,7 @@
       'conditions': [
         ['target_arch=="ia32"', {
           'variables': {
+            'target_dir': 'lib/linux32',
             'project_name': 'greenworks-linux32',
             'redist_bin_dir': 'linux32',
             'public_lib_dir': 'linux32',
@@ -77,6 +69,7 @@
         }],
         ['target_arch=="x64"', {
           'variables': {
+            'target_dir': 'lib/linux64',
             'project_name': 'greenworks-linux64',
             'redist_bin_dir': 'linux64',
             'public_lib_dir': 'linux64',
@@ -90,20 +83,20 @@
     {
       'target_name': '<(project_name)',
       'sources': [
-        '<(discord_game_sdk_dir)/cpp/types.cpp',
-        '<(discord_game_sdk_dir)/cpp/core.cpp',
-        '<(discord_game_sdk_dir)/cpp/achievement_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/activity_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/application_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/image_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/lobby_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/network_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/overlay_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/relationship_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/storage_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/store_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/user_manager.cpp',
-        '<(discord_game_sdk_dir)/cpp/voice_manager.cpp',
+        'deps/discord_game_sdk/cpp/types.cpp',
+        'deps/discord_game_sdk/cpp/core.cpp',
+        'deps/discord_game_sdk/cpp/achievement_manager.cpp',
+        'deps/discord_game_sdk/cpp/activity_manager.cpp',
+        'deps/discord_game_sdk/cpp/application_manager.cpp',
+        'deps/discord_game_sdk/cpp/image_manager.cpp',
+        'deps/discord_game_sdk/cpp/lobby_manager.cpp',
+        'deps/discord_game_sdk/cpp/network_manager.cpp',
+        'deps/discord_game_sdk/cpp/overlay_manager.cpp',
+        'deps/discord_game_sdk/cpp/relationship_manager.cpp',
+        'deps/discord_game_sdk/cpp/storage_manager.cpp',
+        'deps/discord_game_sdk/cpp/store_manager.cpp',
+        'deps/discord_game_sdk/cpp/user_manager.cpp',
+        'deps/discord_game_sdk/cpp/voice_manager.cpp',
         'src/api/greenworks_api_utils.cc',
         'src/api/steam_api_achievement.cc',
         'src/api/steam_api_auth.cc',
@@ -154,7 +147,7 @@
         ],
         'conditions': [
           ['OS=="linux" or OS=="mac"', {
-            'libraries': ['-lsteam_api', '-lsdkencryptedappticket', '-ldiscord_game_sdk.dll'],
+            'libraries': ['-lsteam_api', '-lsdkencryptedappticket', '-l:<(lib_discord)'],
           }],
           ['OS=="win"', {
             'libraries': ['-l<(lib_steam)', '-l<(lib_encryptedappticket)', '-l<(lib_discord)'],
@@ -163,6 +156,11 @@
       },
       'cflags': [ '-std=c++14' ],
       'conditions': [
+        ['OS== "mac"',
+          {
+            'cflags': [ '-std=c++14', '-m32' ],
+          }
+        ],
         ['OS== "linux"',
           {
             'ldflags': [
