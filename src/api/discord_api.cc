@@ -4,6 +4,7 @@
 #include "greenworks_async_workers.h"
 #include "cpp/discord.h"
 #include "steam_api_registry.h"
+#include "discord_api.h"
 
 namespace greenworks {
 namespace api {
@@ -14,6 +15,9 @@ struct DiscordState {
 };
 DiscordState discord_state{};
 discord::Activity activity{};
+uint64_t discord_app_id;
+uint32_t steam_app_id;
+bool discord_not_installed = false;
 
 NAN_METHOD(InitDiscordAPI) {
   Nan::HandleScope scope;
@@ -22,23 +26,10 @@ NAN_METHOD(InitDiscordAPI) {
     THROW_BAD_ARGS("Bad arguments");
   }
 
-  uint64_t discord_app_id = utils::strToUint64(*(Nan::Utf8String(info[0])));
-  uint32_t steam_app_id = Nan::To<uint32>(info[1]).FromJust();
-  std::string msg = "Discord initialized successfully.";
-
-  discord::Core* core{};
-  auto result = discord::Core::Create(discord_app_id, DiscordCreateFlags_NoRequireDiscord, &core);
-  discord_state.core.reset(core);
-  if(!discord_state.core) {
-    msg = "Failed to instantiate discord core!";
-  }
-
-  if(result == discord::Result::Ok) {
-    discord_state.core->ActivityManager().RegisterSteam(steam_app_id);
-  }
-  else {
-    msg = "Discord core exited with error: " + std::to_string((int)result);
-  }
+  discord_app_id = utils::strToUint64(*(Nan::Utf8String(info[0])));
+  steam_app_id = Nan::To<uint32>(info[1]).FromJust();
+  std::string msg = "";
+  discord::Result result = _InitDiscord(&msg);
 
   v8::Local<v8::Object> obj = Nan::New<v8::Object>();
   Nan::Set(obj, Nan::New("result").ToLocalChecked(), Nan::New<v8::Number>((int)result));
@@ -49,6 +40,11 @@ NAN_METHOD(InitDiscordAPI) {
 
 NAN_METHOD(SetDiscordActivity) { 
   Nan::HandleScope scope;
+
+  if(discord_not_installed) {
+      info.GetReturnValue().Set(Nan::New<v8::Boolean>(false));
+      return;
+  }
   
   if(info.Length() < 1 || !info[0]->IsObject()) {
     THROW_BAD_ARGS("Bad arguments");
@@ -94,18 +90,58 @@ NAN_METHOD(SetDiscordActivity) {
 
   if(discord_state.core) {
       discord_state.core->ActivityManager().UpdateActivity(activity, [](discord::Result result) {});
+      info.GetReturnValue().Set(Nan::New<v8::Boolean>(true));
   }
-
-  info.GetReturnValue().Set(Nan::Undefined());
+  else {
+      info.GetReturnValue().Set(Nan::Null());
+  }
 }
 
 NAN_METHOD(RunDiscordCallbacks) { 
   Nan::HandleScope scope;
 
-  if(discord_state.core)
-    discord_state.core->RunCallbacks();
-  
-  info.GetReturnValue().Set(Nan::Undefined());
+  if(discord_state.core) {
+    discord::Result result = discord_state.core->RunCallbacks();
+
+    if(result == discord::Result::NotInstalled && !discord_not_installed) {
+      discord_not_installed = true;
+    }
+    else if(result == discord::Result::NotRunning) {
+      discord_not_installed = false;
+      
+      std::string msg = "";
+      _InitDiscord(&msg);
+    }
+
+    info.GetReturnValue().Set(Nan::New<v8::Number>(int(result)));
+  }
+  else {
+    std::string msg = "";
+    _InitDiscord(&msg);
+
+    info.GetReturnValue().Set(Nan::Null());
+  }
+}
+
+discord::Result _InitDiscord(std::string* msg) {
+  discord::Core* core{};
+  auto result = discord::Core::Create(discord_app_id, DiscordCreateFlags_NoRequireDiscord, &core);
+  discord_state.core.reset(core);
+  if(!discord_state.core) {
+    *msg = "Failed to instantiate discord core!";
+    return discord::Result::InternalError;
+  }
+
+  if(result == discord::Result::Ok) {
+    discord_state.core->ActivityManager().RegisterSteam(steam_app_id);
+  }
+  else {
+    *msg = "Discord core exited with error: " + std::to_string((int)result);
+    return result;
+  }
+
+  *msg = "Discord initialized successfully.";
+  return result;
 }
 
 void RegisterAPIs(v8::Local<v8::Object> target) {
