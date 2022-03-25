@@ -148,8 +148,6 @@ void RegisterAPIs(v8::Local<v8::Object> target) {
   SET_FUNCTION("initDiscordAPI", InitDiscordAPI);
   SET_FUNCTION("setDiscordActivity", SetDiscordActivity);
   SET_FUNCTION("runDiscordCallbacks", RunDiscordCallbacks);
-  //SET_FUNCTION("setDiscordActivityDetails", SetDiscordActivityDetails);
-  //SET_FUNCTION("setDiscordActivityTimestampsStart", SetDiscordActivityTimestampsStart);
 }
 
 SteamAPIRegistry::Add X(RegisterAPIs);
