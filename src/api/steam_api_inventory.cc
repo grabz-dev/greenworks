@@ -30,6 +30,67 @@ NAN_METHOD(ConsumeItem) {
   info.GetReturnValue().Set(Nan::Undefined());
 }
 
+NAN_METHOD(ExchangeItems) {
+  Nan::HandleScope scope;
+
+  if (info.Length() < 3 || !info[0]->IsArray() || !info[1]->IsArray() || !info[2]->IsFunction()) {
+    THROW_BAD_ARGS("Bad arguments");
+  }
+
+  v8::Local<v8::Array> itemsGenerate = info[0].As<v8::Array>();
+  v8::Local<v8::Array> itemsDestroy = info[1].As<v8::Array>();
+
+  uint32_t unArrayLengthGenerate = itemsGenerate->Length();
+  uint32_t unArrayLengthDestroy = itemsDestroy->Length();
+
+  SteamItemDef_t* pArrayItemDefsGenerate = new SteamItemDef_t[unArrayLengthGenerate];
+  SteamItemInstanceID_t* pArrayItemInstancesDestroy = new SteamItemInstanceID_t[unArrayLengthDestroy];
+
+  uint32_t* punArrayQuantityGenerate = new uint32_t[unArrayLengthGenerate];
+  uint32_t* punArrayQuantityDestroy = new uint32_t[unArrayLengthDestroy];
+
+  for (uint32_t i = 0; i < unArrayLengthGenerate; ++i) {
+    if (!Nan::Get(itemsGenerate, i).ToLocalChecked()->IsObject())
+      THROW_BAD_ARGS("Bad arguments");
+      
+    v8::Local<v8::Object> item = v8::Local<v8::Object>::Cast(Nan::Get(itemsGenerate, i).ToLocalChecked());
+    v8::Local<v8::Number> item_def = v8::Local<v8::Number>::Cast(Nan::Get(item, Nan::New("item_def").ToLocalChecked()).ToLocalChecked());
+    v8::Local<v8::Number> quantity = v8::Local<v8::Number>::Cast(Nan::Get(item, Nan::New("quantity").ToLocalChecked()).ToLocalChecked());
+
+    if (!item_def->IsInt32() || !quantity->IsUint32()) {
+      THROW_BAD_ARGS("Each object in the array must have the 'item_def' and 'quantity' properties.");
+    }
+
+    pArrayItemDefsGenerate[i] = Nan::To<SteamItemDef_t>(item_def).FromJust();
+    punArrayQuantityGenerate[i] = Nan::To<uint32>(quantity).FromJust();
+  }
+
+  for (uint32_t i = 0; i < unArrayLengthDestroy; ++i) {
+    if (!Nan::Get(itemsDestroy, i).ToLocalChecked()->IsObject())
+      THROW_BAD_ARGS("Bad arguments");
+      
+    v8::Local<v8::Object> item = v8::Local<v8::Object>::Cast(Nan::Get(itemsDestroy, i).ToLocalChecked());
+    v8::Local<v8::String> item_ins = v8::Local<v8::String>::Cast(Nan::Get(item, Nan::New("item_ins").ToLocalChecked()).ToLocalChecked());
+    v8::Local<v8::Number> quantity = v8::Local<v8::Number>::Cast(Nan::Get(item, Nan::New("quantity").ToLocalChecked()).ToLocalChecked());
+
+    if (!item_ins->IsString() || !quantity->IsUint32()) {
+      THROW_BAD_ARGS("Each object in the array must have the 'item_ins' and 'quantity' properties.");
+    }
+
+    pArrayItemInstancesDestroy[i] = utils::strToUint64(*(Nan::Utf8String(item_ins)));
+    punArrayQuantityDestroy[i] = Nan::To<uint32>(quantity).FromJust();
+  }
+
+  Nan::Callback* success_callback = new Nan::Callback(info[2].As<v8::Function>());
+  Nan::Callback* error_callback = nullptr;
+
+  if (info.Length() > 3 && info[3]->IsFunction())
+    error_callback = new Nan::Callback(info[3].As<v8::Function>());
+
+  Nan::AsyncQueueWorker(new greenworks::ExchangeItemsWorker(success_callback, error_callback, pArrayItemDefsGenerate, punArrayQuantityGenerate, unArrayLengthGenerate, pArrayItemInstancesDestroy, punArrayQuantityDestroy, unArrayLengthDestroy));
+  info.GetReturnValue().Set(Nan::Undefined());
+}
+
 NAN_METHOD(StartPurchase) {
   Nan::HandleScope scope;
 
@@ -90,6 +151,7 @@ NAN_METHOD(GetAllItems) {
 void RegisterAPIs(v8::Local<v8::Object> target) {
   SET_FUNCTION("consumeItem", ConsumeItem)
   SET_FUNCTION("startPurchase", StartPurchase);
+  SET_FUNCTION("exchangeItems", ExchangeItems);
   SET_FUNCTION("getAllItems", GetAllItems);
 }
 

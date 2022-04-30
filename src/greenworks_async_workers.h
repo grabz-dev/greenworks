@@ -236,6 +236,32 @@ class StartPurchaseWorker : public SteamAsyncWorker {
   uint64_t api_call_;
 };
 
+class ExchangeItemsWorker : public SteamCallbackAsyncWorker {
+ public:
+  ExchangeItemsWorker(Nan::Callback* success_callback,
+                       Nan::Callback* error_callback,
+                       SteamItemDef_t* pArrayItemDefsGenerate,
+                       uint32_t* punArrayQuantityGenerate,
+                       uint32_t unArrayLengthGenerate,
+                       SteamItemInstanceID_t* pArrayItemInstancesDestroy,
+                       uint32_t* punArrayQuantityDestroy,
+                       uint32_t unArrayLengthDestroy);
+
+  void Execute() override;
+  void HandleOKCallback() override;
+  STEAM_CALLBACK( ExchangeItemsWorker, OnSteamInventoryResult, SteamInventoryResultReady_t, m_SteamInventoryResult );
+
+ private:
+  SteamInventoryResult_t inv_result_;
+  std::vector<SteamItemDetails_t> item_details_;
+  SteamItemDef_t* pArrayItemDefsGenerate_;
+  uint32_t* punArrayQuantityGenerate_;
+  uint32_t unArrayLengthGenerate_;
+  SteamItemInstanceID_t* pArrayItemInstancesDestroy_;
+  uint32_t* punArrayQuantityDestroy_;
+  uint32_t unArrayLengthDestroy_;
+};
+
 class GetAllItemsWorker : public SteamCallbackAsyncWorker {
  public:
   GetAllItemsWorker(Nan::Callback* success_callback,

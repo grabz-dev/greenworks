@@ -452,6 +452,85 @@ void StartPurchaseWorker::Execute() {
   if(api_call_ == k_uAPICallInvalid) SetErrorMessage("StartPurchase API call invalid.");
 }
 
+ExchangeItemsWorker::ExchangeItemsWorker(
+    Nan::Callback* success_callback,
+    Nan::Callback* error_callback,
+    SteamItemDef_t* pArrayItemDefsGenerate,
+    uint32_t* punArrayQuantityGenerate,
+    uint32_t unArrayLengthGenerate,
+    SteamItemInstanceID_t* pArrayItemInstancesDestroy,
+    uint32_t* punArrayQuantityDestroy,
+    uint32_t unArrayLengthDestroy):
+        SteamCallbackAsyncWorker(success_callback, error_callback),
+        m_SteamInventoryResult( this, &ExchangeItemsWorker::OnSteamInventoryResult ),
+        pArrayItemDefsGenerate_(pArrayItemDefsGenerate),
+        punArrayQuantityGenerate_(punArrayQuantityGenerate),
+        unArrayLengthGenerate_(unArrayLengthGenerate),
+        pArrayItemInstancesDestroy_(pArrayItemInstancesDestroy),
+        punArrayQuantityDestroy_(punArrayQuantityDestroy),
+        unArrayLengthDestroy_(unArrayLengthDestroy),
+        inv_result_(-1)
+{
+}
+
+void ExchangeItemsWorker::Execute() {
+  bool success = SteamInventory()->ExchangeItems(&inv_result_, pArrayItemDefsGenerate_, punArrayQuantityGenerate_, unArrayLengthGenerate_, pArrayItemInstancesDestroy_, punArrayQuantityDestroy_, unArrayLengthDestroy_);
+
+  if(!success) {
+    SetErrorMessage("ExchangeItems failed. Items to generate must be exactly 1.");
+  }
+
+  WaitForCompleted();
+}
+
+void ExchangeItemsWorker::OnSteamInventoryResult( SteamInventoryResultReady_t *callback ) {
+    if (callback->m_handle != inv_result_) return;
+
+    if (callback->m_result != k_EResultOK) {
+        SetErrorMessage(("ExchangeItems error code: " + std::to_string(callback->m_result) + ". https://partner.steamgames.com/doc/api/steam_api#EResult").c_str());
+    }
+    else {
+        bool bGotResult = false;
+		uint32 count = 0;
+		if ( SteamInventory()->GetResultItems( callback->m_handle, NULL, &count ) )
+		{
+			item_details_.resize( count );
+			bGotResult = SteamInventory()->GetResultItems( callback->m_handle, item_details_.data(), &count );
+		}
+
+        if ( !bGotResult ) {
+            SetErrorMessage("ExchangeItems failed. This indicates that the user has no items, or an internal error.");
+        }
+    }
+
+    // We're not hanging on the the result after processing it.
+	SteamInventory()->DestroyResult( callback->m_handle );
+
+    is_completed_ = true;
+}
+
+void ExchangeItemsWorker::HandleOKCallback() {
+  Nan::HandleScope scope;
+
+  uint32_t n = item_details_.size();
+  v8::Local<v8::Array> arr = Nan::New<v8::Array>(n);
+  for (uint32_t i = 0; i < n; i++) {
+    SteamItemDetails_t item_details = item_details_[i];
+    v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+    Nan::Set(obj, Nan::New("m_itemId").ToLocalChecked(), Nan::New(utils::uint64ToString(item_details.m_itemId)).ToLocalChecked());
+    Nan::Set(obj, Nan::New("m_iDefinition").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_iDefinition));
+    Nan::Set(obj, Nan::New("m_unQuantity").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_unQuantity));
+    Nan::Set(obj, Nan::New("m_unFlags").ToLocalChecked(), Nan::New<v8::Number>(item_details.m_unFlags));
+
+    Nan::Set(arr, Nan::New(std::to_string(i)).ToLocalChecked(), obj);
+  }
+
+  v8::Local<v8::Value> argv[] = { arr };
+  Nan::AsyncResource resource("greenworks:ConsumeItemWorker.HandleOKCallback");
+  callback->Call(1, argv, &resource);
+}
+
+
 GetAllItemsWorker::GetAllItemsWorker(
     Nan::Callback* success_callback,
     Nan::Callback* error_callback):
